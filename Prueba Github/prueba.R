@@ -32,9 +32,7 @@ library(Hmisc)
 z <- cut2(x, c(10,20,30,40,50,60,70,80,90)) # manual
 table(z)
 
-z <- cut2(x, g=5) # por quantiles
 
-z <- cut2(x, m=20) # intervalos con al menos 50 obs
 
 
 
