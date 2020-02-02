@@ -1,0 +1,278 @@
+---
+title: "Fundamentals of web scraping with R - Part 1"
+author: "Juan David Martínez"
+date: "16 de febrero de 2017"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introducción
+- Todos estamos acostumbrados a trabajar con datos relativamente ordenados. Es decir, datos organizados en columnas y filas de manera estructurada.
+
+- Nosotros somos en cierto sentido consumidores finales de las bases de datos. ***No estamos involucrados en toda la ingeniería detras de mantener, ordenar y codificar una base de datos desde cero***.
+
+- La mayoría de los datos actualmente son datos ***NO estructurados***. Es decir, si bien existen grandes fuentes de datos, estos carecen de estructura (no están en forma de base de datos).
+
+- Un ejemplo claro es la información contenida en la web: Textos, imágenes, etc...
+
+
+
+## Web scraping: Datos al alcance de un click
+
+- ***Programar código mediante el cual se pueda extraer información de la web***.
+
+- Cada detalle de una página web, por simple que sea, es un dato suceptible de análisis.
+
+https://www.youtube.com/watch?v=VSKoVsHs_Ko
+
+- Las bases de datos que podemos crear a partir de la web son ilimitadas.
+
+- OJO... Siempre se debe tener en cuenta el aspecto legal. Si bien estos datos son públicos esto no significa que no estén protegidos por derechos de autor u otros mecanismos.
+
+- Consejo 1: Revisen términos y condiciones.
+
+- Consejo 2: Utilicen el poder del web scraping para bien.
+
+
+## ¿Cuál es la intuición detrás del web scraping?
+
+
+![Página web](C:\Users\Juan David Martínez\Documents\UR-2017\Big Data_ Machine Learning\imagen1.png)
+
+![Código HTML fuente](C:\Users\Juan David Martínez\Documents\UR-2017\Big Data_ Machine Learning\imagen2.jpg)
+
+
+
+
+
+
+
+
+## ¿Cuál es la intuición detrás del web scraping?
+
+- La idea básica es que en vez de extraer datos de la página web, extraemos datos a partir del código HTML de la misma.
+
+- ¿Dónde está la dificultad?...esos datos que necesitamos están escondidos entre un mar de código HTML que para nosotros es basura.
+
+- R y su comunidad nos ayudan a superar esta dificultad con el paquete ***rvest*** y el paquete ***magrittr***.
+
+
+```{r echo=TRUE}
+library(magrittr)
+library(rvest)
+```
+
+
+- Estos paquetes toman el código fuente de las páginas de internet y lo limpian para que podamos extraer infromación de manera más sencilla.
+
+
+
+
+
+
+## Ejercicio práctico
+
+- Realizaremos web scraping a la siguiente página web: <https://www.r-users.com/job-type/full-time/>
+
+- Primero debemos decirle a R que abra el url usando la función ***read_html***:
+
+```{r echo=TRUE}
+url <- 'https://www.r-users.com/job-type/full-time/'
+
+page <- read_html(url)
+```
+
+
+- La clave para hacer web scraping es entender cómo se estructura un código HTML.
+
+- Un código HTML tiene ***clases, tags y atributos***.
+
+```{r echo=TRUE}
+#  <div class="l-region l-region--toma">
+#  <div id="block-dfp-mega-banner-top-home" class="block block--dfp block--dfp-mega">
+```
+
+- Todo lo que empiece con un < es un tag.
+
+- Todo lo que esté después de un tag y tenga una asignación (= ) se considera un atributo.
+
+- Las clases son un tipo de atributo especial.
+
+
+## Ejercicio práctico
+
+- Para encontrar los datos que necesitamos en la página web necesitamos filtrar usando tags y atributos.
+
+Ejemplo:
+
+Si el nombre de un puesto de trabajo está en el código HTML así:
+
+
+```{r echo=TRUE}
+#  <div class="job_title">
+#  <span> DATA SCIENTIST </span></div></div></div>
+```
+
+
+Debemos filtrar por el tag ***div***, por la clase ***job_title*** y por el tag ***span*** para encontrar todos los cargos ofrecidos en la página.
+
+
+- La función más útil para filtrar por tags, atributos o clases es ***html_nodes***.
+
+Como primer argumento, esta función toma el objeto creado a partir de la apertura del url.
+
+Esta función toma como segundo argumento, entre comillas, los tags, atributos y clases separados por un espacio. 
+
+
+Para nuestro ejemplo:
+
+
+
+```{r echo=TRUE}
+#  html_nodes(page, 'div .job_title span')
+```
+
+
+## Ejercicio práctico
+
+Extraigamos la fecha de cada oferta laboral y el año. Además, tomemos cada link para cada oferta.
+
+Debemos usar la función ***html_text()*** si lo que queremos viene como texto o números dentro de una clase, y usamos ***html_attr()*** cuando queremos extraer el valor de algún atributo, en este caso links:
+
+```{r echo=TRUE}
+date_list <- page %>% html_nodes('.date  strong') %>% html_text()
+
+year_list <- page %>% html_nodes('.year') %>% html_text()
+
+links <- page %>% html_nodes('.title strong a') %>% html_attr('href')
+
+head(date_list)
+head(year_list)
+head(links)
+```
+
+
+
+
+## Ejercicio práctico
+
+
+Armemos una base de datos utilizando todos nuestros conocimientos de R:
+
+- Nuestra base debe recopilar toda la información disponible para cada oferta laboral.
+
+
+
+Primero generamos un objeto que contenga la lista de contenido para cada oferta laboral filtrando por la clase ***job***
+
+```{r echo=TRUE}
+jobs <- page %>% html_nodes('.job') 
+head(jobs)
+```
+
+
+
+Luego, creamos vectores vacios para llenarlos paulatinamente con la información de la página web:
+```{r echo=TRUE}
+title        = c()
+loc          = c()
+day          = c()
+year         = c()
+type         = c()
+link         = c()
+link_company = c()
+name_company = c()
+```
+
+
+
+Después, generamos un loop que vaya llenando cada lista según la información que le corresponda:
+
+```{r echo=TRUE}
+for (i in 1:length(jobs)){
+  title[i]         <- jobs[i] %>% html_node('.title')    %>% html_text()
+  loc[i]           <- jobs[i] %>% html_node('.location') %>% html_text()
+  day[i]           <- jobs[i] %>% html_node('.date')     %>% html_text()
+  year[i]          <- jobs[i] %>% html_node('.year')     %>% html_text()
+  type[i]          <- jobs[i] %>% html_node('.jtype')    %>% html_text()
+  link[i]          <- jobs[i] %>% html_node('strong a')  %>% html_attr('href')
+  link_company[i]  <- jobs[i] %>% html_nodes('a')        %>% extract2(2)    %>% html_attr('href')
+  name_company[i]  <- jobs[i] %>% html_nodes('a')        %>% extract2(2)    %>% html_text()
+}
+
+```
+La función extract2() es muy útil cuando existen tags con el mismo nombre dentro de una misma función o dentro otro tag.
+
+
+
+Unimos las listas y formamos un data frame:
+```{r echo=TRUE}
+
+df_jobs <- cbind(title, loc, day, year, type, link, link_company, name_company)
+
+df_jobs <- as.data.frame(df_jobs)
+
+head(df_jobs)
+
+```
+
+
+
+## Programando bots
+
+
+- En R es posible programar bots que sean capaces de navegar en una página web como lo haría un humano.
+
+- Lo haremos con ayuda del paquete ***RSelenium***.
+
+
+```{r echo = TRUE}
+#install.packages('RSelenium')
+library(RSelenium)
+```
+
+- OJO... ***RSelenium*** es relativamente complejo de instalar. Mi consejo: Seguir al pie de la letra esta guía: <https://ropensci.org/tutorials/rselenium_tutorial.html>.
+
+- ***RSelenium*** utiliza Firefox como driver por defecto. Para usar firefox debemos ejecutar las siguientes líeas de código:
+
+```{r echo = TRUE}
+remDr <- remoteDriver()
+remDr$open()
+remDr$navigate("https://www.r-users.com/job-type/full-time/")
+```
+
+- Lo que hace este bloque de código es abrir el navegador con el url respectivo.
+
+
+- Luego, podemos empezar a hacer tareas básicas con nuestro bot, como por ejemplo hacer click:
+
+
+```{r echo = TRUE}
+webElem <- remDr$findElement(using = "xpath", '//*[@id="menu-top"]/li[5]/a')
+webElem$clickElement()
+```
+
+
+- También podemos seleccionar elementos en listas desplegables:
+
+```{r echo = TRUE}
+webElem2 <- remDr$findElement(using = "xpath", '//*[@id="radius"]')
+webElem2$sendKeysToElement(list("5 mi"))
+```
+
+- La clave está en seleccionar el XPATH correcto para cada acción que queramos asignar a nuestro bot.
+
+- Consejo 1: Siempre pongan pausas en su código para que el buscador cargue el contendio antes de ejecutar las acciones.
+
+- Consejo 2: Reduzcan las posibilidades de ser detectados mediante pausas aleatorias.
+
+```{r echo= TRUE}
+time = abs(rnorm(n=1, mean = 4,sd = 3))
+Sys.sleep(time)
+```
+
+
+
